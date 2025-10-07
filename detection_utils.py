@@ -1,3 +1,12 @@
+import zipfile
+import os
+
+import numpy as np
+from sklearn.utils import shuffle
+from PIL import Image
+import tensorflow as tf
+import albumentations as A
+
 # Распаковка zip
 def zip_extrcat(file):
   with zipfile.ZipFile(f'{file}.zip', 'r') as zip_ref:
