@@ -17,7 +17,7 @@
 Склонируйте репозиторий и импортируйте модуль:
 
 ```python
-!git clone https://github.com/username/object_detection.git
+!git clone https://github.com/VasiliyLysov/object_detection.git
 import sys
 sys.path.append("/content/object_detection")
 import detection_utils as du
