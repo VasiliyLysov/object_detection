@@ -92,10 +92,9 @@ def make_dataset(img_paths, annotations, transform, batch_size=8, num_classes=2,
     return ds.prefetch(tf.data.AUTOTUNE)
 
 
-def preprocess_batch(images, targets):
+def preprocess_batch(images, targets, fm_shape = (7, 7), num_classes = 2):
     batch_size = tf.shape(images)[0]
-    fm_height, fm_width = 7, 7
-    num_classes = 2
+    fm_height, fm_width = fm_shape
 
     bbox_targets = tf.zeros((batch_size, fm_height, fm_width, 4), dtype=tf.float32)
     class_targets = tf.zeros((batch_size, fm_height, fm_width, num_classes), dtype=tf.float32)
