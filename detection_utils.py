@@ -6,6 +6,7 @@ from sklearn.utils import shuffle
 from PIL import Image
 import tensorflow as tf
 import albumentations as A
+from tensorflow.image import combined_non_max_suppression
 
 # Распаковка zip
 def zip_extrcat(file):
@@ -193,3 +194,52 @@ def decode_preds(preds, threshold=0.5, fm_size=7, max_objects=2):
         obj_list.append(tf.reduce_mean(obj_score))
 
     return tf.stack(bboxes_list), tf.stack(labels_list), tf.stack(obj_list)
+
+# NMS
+def nms_predictions(preds, max_output_size_per_class=5, max_total_size=10, iou_threshold=0.3, score_threshold=0.3, max_objects = 49):
+    pred_bb, pred_label, _ = decode_preds(preds, threshold=0, max_objects=max_objects)
+    preds_cp = preds[..., -1]
+
+    B, N, _ = pred_bb.shape
+    num_classes = pred_label.shape[-1]
+
+    conf = tf.reshape(preds_cp, [B, N, 1])
+    scores = pred_label * conf
+
+    # cx, cy, w, h → ymin, xmin, ymax, xmax
+    cx, cy, w, h = tf.split(pred_bb, 4, axis=-1)
+    boxes = tf.concat([cy - h/2, cx - w/2, cy + h/2, cx + w/2], axis=-1)
+
+    all_boxes, all_classes, valid = [], [], []
+
+    for b in range(B):
+        bboxes, bclasses = [], []
+
+        for c in range(num_classes):
+            s = scores[b, :, c]
+            mask = s > score_threshold
+            if not tf.reduce_any(mask): 
+                continue
+
+            sel = tf.image.non_max_suppression(
+                tf.boolean_mask(boxes[b], mask),
+                tf.boolean_mask(s, mask),
+                max_output_size=max_output_size_per_class,
+                iou_threshold=iou_threshold
+            )
+
+            bboxes.append(tf.gather(tf.boolean_mask(boxes[b], mask), sel))
+            bclasses.append(tf.ones_like(sel, dtype=tf.int32) * c)
+
+        if bboxes:
+            bboxes = tf.concat(bboxes, axis=0)[:max_total_size]
+            bclasses = tf.concat(bclasses, axis=0)[:max_total_size]
+        else:
+            bboxes = tf.zeros((0, 4), tf.float32)
+            bclasses = tf.zeros((0,), tf.int32)
+
+        all_boxes.append(bboxes)
+        all_classes.append(bclasses)
+        valid.append(tf.shape(bboxes)[0])
+
+    return all_boxes, all_classes, valid
